@@ -22,3 +22,4 @@ All are defined in `app/settings.py`: base grid spacing 1,000 m; heights 1/5/10 
 - Full horizon masks, reference values, baseline comparisons and performance measurements are not yet available.
 - Until artifact loading and the analysis engine are implemented, `/health` and a valid `POST /analyses` return 503; no synthetic analysis results are generated.
 - Zero slope cap: the specified provisional rule gives passed sites flatness 1.
+- Required sunlight ratio zero: the sunlight requirement term is treated as satisfied (1); the input specification permits zero but does not define division by zero.

@@ -223,3 +223,6 @@ __marimo__/
 data/*
 !data/.gitkeep
 .env
+
+# Generated offline artifacts
+artifacts/
