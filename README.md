@@ -16,6 +16,7 @@ python -m scripts.precompute_grid
 python -m scripts.precompute_reference
 python -m scripts.precompute_masks
 python -m scripts.validate_baseline
+python -m scripts.calibrate_delta
 uvicorn app.main:app --reload
 python -m pytest
 ruff check .
@@ -32,3 +33,6 @@ deployment alone does not include ignored artifacts or source data. The current
 container startup script downloads only the original DEM and baseline datasets,
 so a complete deployment requires a separate artifact provisioning procedure.
 Keep `WEB_CONCURRENCY=1`: the analysis cache is local to each server process.
+`calibrate_delta` additionally requires the four PGDA 78 Site DEMs. It reports a
+matched 2 km comparison and a 100 km hybrid estimate, and does not change the
+configured Earth margin. The 5 m tiles do not cover a full 100 km radius.
