@@ -32,6 +32,12 @@ def test_analysis_does_not_fabricate_results() -> None:
         assert result.json()["error"]["code"] == "DATA_NOT_READY"
         result = client.post("/analyses", json={**request, "objective": "UNKNOWN"})
         assert result.status_code == 400
+        result = client.post("/analyses", json={**request, "landingDate": "2027-01-01"})
+        assert result.json()["error"]["code"] == "DATE_OUT_OF_RANGE"
+        bad_weights = {**request, "advanced": {"importanceWeights": [True, 3, 3, 3, 3]}}
+        assert client.post("/analyses", json=bad_weights).status_code == 400
+        assert client.get("/analyses/missing/grid", params={"bbox": "0,0,1,1"}).json()["error"]["code"] == "ANALYSIS_NOT_FOUND"
+        assert client.get("/analyses/missing/grid", params={"bbox": "1,0,0,1"}).status_code == 400
 
 
 def test_all_preview_presets_match_shared_weight_calculation() -> None:

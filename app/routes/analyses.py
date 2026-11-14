@@ -33,28 +33,28 @@ def _validate_bbox(bbox: str) -> None:
         raise HTTPException(status_code=400, detail="Invalid bounding box.") from exc
 
 
-@router.get("/{analysis_id}/recommendations")
-def recommendations(analysis_id: str, bbox: str, limit: int = Query(default=10, ge=1, le=50)) -> dict:
+@router.get("/{analysisId}/recommendations")
+def recommendations(analysisId: str, bbox: str, limit: int = Query(default=10, ge=1, le=50)) -> dict:
     _validate_bbox(bbox)
     raise HTTPException(status_code=404, detail="Analysis not found.")
 
 
-@router.get("/{analysis_id}/grid")
-def grid(analysis_id: str, bbox: str) -> dict:
+@router.get("/{analysisId}/grid")
+def grid(analysisId: str, bbox: str) -> dict:
     _validate_bbox(bbox)
     raise HTTPException(status_code=404, detail="Analysis not found.")
 
 
-@router.get("/{analysis_id}/sites/{site_id}")
-def site(analysis_id: str, site_id: str) -> dict:
+@router.get("/{analysisId}/sites/{siteId}")
+def site(analysisId: str, siteId: str) -> dict:
     raise HTTPException(status_code=404, detail="Analysis not found.")
 
 
-@router.get("/{analysis_id}/sites/{site_id}/visibility")
-def visibility(analysis_id: str, site_id: str, landingDate: date | None = None) -> dict:
+@router.get("/{analysisId}/sites/{siteId}/visibility")
+def visibility(analysisId: str, siteId: str, landingDate: date | None = None) -> dict:
     raise HTTPException(status_code=404, detail="Analysis not found.")
 
 
-@router.get("/{analysis_id}/sites/{site_id}/terrain")
-def terrain(analysis_id: str, site_id: str, radiusM: int = Query(default=2000, ge=1, le=5000)) -> dict:
+@router.get("/{analysisId}/sites/{siteId}/terrain")
+def terrain(analysisId: str, siteId: str, radiusM: int = Query(default=2000, ge=1, le=5000)) -> dict:
     raise HTTPException(status_code=404, detail="Analysis not found.")

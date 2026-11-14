@@ -1,7 +1,7 @@
 """Request models for the landing-site API."""
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -31,7 +31,9 @@ class Advanced(BaseModel):
     slopeConstraint: SlopeConstraint = Field(default_factory=SlopeConstraint)
     crewedSunlightConstraint: CrewedConstraint = Field(default_factory=CrewedConstraint)
     uncrewedConstraints: UncrewedConstraint = Field(default_factory=UncrewedConstraint)
-    importanceWeights: list[int] | None = Field(default=None, min_length=5, max_length=5)
+    importanceWeights: list[Annotated[int, Field(strict=True, ge=1, le=5)]] | None = Field(
+        default=None, min_length=5, max_length=5
+    )
     requiredSunlightRatio: float | None = Field(default=None, ge=0, le=100)
     sunVisibilityCriterion: Literal["PARTIAL", "HALF_DISK", "FULL"] = "HALF_DISK"
     earthVisibilityCriterion: Literal["UPPER_EDGE", "CENTER_DELTA", "FULL"] = "CENTER_DELTA"
