@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from app.api.health import router
 from app.config import Settings
 from app.data.loader import load_metadata
 from app.engine.artifacts import load_artifacts
+from app.engine.postgres_store import PostgresAnalysisStore
 from app.engine.store import AnalysisStore
 from app.routes.analyses import router as analyses_router
 from app.routes.config import router as config_router
@@ -20,9 +22,13 @@ from app.settings import CORS_ORIGINS
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if isinstance(app.state.store, PostgresAnalysisStore):
+        app.state.store.initialize()
     app.state.data = load_metadata(app.state.settings.raster_paths)
     try:
         app.state.artifacts = load_artifacts(app.state.settings.artifacts_dir)
+        if isinstance(app.state.store, PostgresAnalysisStore):
+            app.state.store.configure_artifacts()
     except (OSError, ValueError, KeyError):
         app.state.artifacts = None
     yield
@@ -32,7 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings
-    app.state.store = AnalysisStore()
+    app.state.store = PostgresAnalysisStore(settings) if settings.database_url else AnalysisStore()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(CORS_ORIGINS),
@@ -48,6 +54,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"success": False, "error": {
             "code": "INVALID_REQUEST", "message": "Invalid request parameters."}})
+
+    @app.exception_handler(psycopg.Error)
+    async def database_error(request: Request, exc: psycopg.Error) -> JSONResponse:
+        return JSONResponse(status_code=503, content={"success": False, "error": {
+            "code": "DATABASE_UNAVAILABLE", "message": "Analysis storage is unavailable."}})
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:

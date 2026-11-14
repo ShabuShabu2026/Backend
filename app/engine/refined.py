@@ -53,7 +53,17 @@ def refined_sites(analysis: dict[str, Any], bounds: tuple[float, float, float, f
     if not len(x):
         return []
     cache = analysis.setdefault("refined", {})
-    keys = [(float(spacing).hex(), int(row), int(col)) for row, col in zip(rows, cols, strict=True)]
+    # Canonical coordinates keep identical points stable when the viewport changes.
+    keys = [(round(float(px), 7), round(float(py), 7)) for px, py in zip(x, y, strict=True)]
+    if "baseCoordinates" not in analysis:
+        analysis["baseCoordinates"] = {
+            (round(float(site["x"]), 7), round(float(site["y"]), 7)): site
+            for site in analysis["sites"]
+        }
+    base = analysis["baseCoordinates"]
+    for key in keys:
+        if key in base:
+            cache[key] = base[key]
     missing = [i for i, key in enumerate(keys) if key not in cache]
     if missing:
         xx, yy = x[missing], y[missing]

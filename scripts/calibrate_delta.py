@@ -180,6 +180,13 @@ def run(data_dir: Path, grid_path: Path, output: Path) -> dict:
               f"hybrid absolute P95 {hybrid_summary['absoluteP95Deg']:.4f} degrees", flush=True)
     signed = np.concatenate(differences, axis=0)
     hybrid_signed = np.concatenate(hybrid_differences, axis=0)
+    # Resample whole locations, not correlated azimuth rays. This still does not
+    # account for spatial correlation or the non-random selection of four tiles.
+    rng = np.random.default_rng(CALIBRATION_RANDOM_SEED)
+    bootstrap_p95 = [float(np.percentile(hybrid_signed[rng.integers(0, len(hybrid_signed),
+                                                                  len(hybrid_signed))], 95))
+                     for _ in range(300)]
+    point_p95 = np.percentile(hybrid_signed, 95, axis=1)
     report = {"method": "Compare 5 m and 80 m over the same 2 km radius; hybrid uses 5 m inside 2 km and 80 m outside, not a full 100 km high-resolution DEM.",
               "radiusM": CALIBRATION_LOCAL_RADIUS_M, "heightM": CALIBRATION_HEIGHT_M,
               "samplesPerSiteLimit": CALIBRATION_SAMPLES_PER_SITE, "randomSeed": CALIBRATION_RANDOM_SEED,
@@ -190,6 +197,9 @@ def run(data_dir: Path, grid_path: Path, output: Path) -> dict:
               "meanSignedDeg": float(np.mean(signed)),
               "hybridSignedP95Deg": float(np.percentile(hybrid_signed, 95)),
               "hybridAbsoluteP95Deg": float(np.percentile(np.abs(hybrid_signed), 95)),
+              "hybridSignedP95LocationBootstrap95CI": np.percentile(bootstrap_p95, [2.5, 97.5]).tolist(),
+              "hybridLocationP95Above025Count": int(np.count_nonzero(point_p95 > 0.25)),
+              "hybridRayFractionAbove025": float(np.mean(hybrid_signed > 0.25)),
               "hybridMeanSignedDeg": float(np.mean(hybrid_signed)), "elapsedSeconds": time.perf_counter() - started}
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".part")

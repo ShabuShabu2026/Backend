@@ -17,6 +17,7 @@ def config() -> dict:
         "objectives": [{"id": i, "label": label, "hasOtherScore": flag}
                        for i, label, flag in settings.OBJECTIVES],
         "requiredSunlightByPower": settings.SUNLIGHT_BY_POWER,
+        "earthVisibilityMargin": {"degrees": settings.EARTH_DELTA_DEG, "provisional": True},
         "importancePresets": {
             "communicationDependency": settings.COMMUNICATION_IMPORTANCE,
             "missionType": {k: {"flatness": v, "roughness": v}

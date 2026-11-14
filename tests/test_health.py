@@ -7,7 +7,7 @@ from app.main import create_app
 
 
 def test_health_is_not_ready_without_artifacts(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path / "artifacts"))) as client:
+    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path / "artifacts", database_url=None))) as client:
         response = client.get("/health")
         assert response.status_code == 503
         assert response.json() == {"success": False, "error": {
@@ -19,6 +19,6 @@ def test_health_is_not_ready_without_artifacts(tmp_path: Path) -> None:
 
 
 def test_provisional_cors_allows_origins(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path / "artifacts"))) as client:
+    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path / "artifacts", database_url=None))) as client:
         response = client.get("/config", headers={"Origin": "https://example.com"})
         assert response.headers["access-control-allow-origin"] == "*"

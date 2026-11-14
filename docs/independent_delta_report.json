@@ -1,0 +1,206 @@
+{
+  "method": "LROC stereo local horizon plus 80 m DEM outside local disk; median vertical offset per tile",
+  "radiusM": 250,
+  "sites": [
+    {
+      "name": "NAC_DTM_ESALL_SR12.TIF",
+      "bytes": 25020674,
+      "sha256": "52d35898a61991bb13bd463156bd95a8c01be6806247247e891752f56fbb425c",
+      "pixelM": 2.0,
+      "eligible": 4,
+      "selected": 4,
+      "ids": [
+        "LSP-37965",
+        "LSP-38267",
+        "LSP-38268",
+        "LSP-38571"
+      ],
+      "verticalOffsetM": -0.7730712890625,
+      "verticalNMADM": 1.4824190139770508,
+      "verticalPairs": 2679,
+      "heights": {
+        "1": {
+          "signedP95Deg": 0.9973252415657043,
+          "fractionAbove025": 0.31840277777777776
+        },
+        "5": {
+          "signedP95Deg": 0.8753515481948853,
+          "fractionAbove025": 0.23645833333333333
+        },
+        "10": {
+          "signedP95Deg": 0.7600007057189941,
+          "fractionAbove025": 0.15625
+        }
+      }
+    },
+    {
+      "name": "NAC_DTM_ESALL_CR1.TIF",
+      "bytes": 25020674,
+      "sha256": "fc57e2d4452bf2522ae7ed3a091e4f6dfc4eea6a989324edb06344689712a453",
+      "pixelM": 2.0,
+      "eligible": 11,
+      "selected": 11,
+      "ids": [
+        "LSP-39167",
+        "LSP-39168",
+        "LSP-39169",
+        "LSP-39170",
+        "LSP-39470",
+        "LSP-39471",
+        "LSP-39472",
+        "LSP-39473",
+        "LSP-39772",
+        "LSP-39776",
+        "LSP-40076"
+      ],
+      "verticalOffsetM": -0.8607177734375,
+      "verticalNMADM": 1.9339677095413208,
+      "verticalPairs": 3611,
+      "heights": {
+        "1": {
+          "signedP95Deg": 2.927639961242676,
+          "fractionAbove025": 0.41792929292929293
+        },
+        "5": {
+          "signedP95Deg": 1.307030200958252,
+          "fractionAbove025": 0.3186868686868687
+        },
+        "10": {
+          "signedP95Deg": 0.8799786567687988,
+          "fractionAbove025": 0.20454545454545456
+        }
+      }
+    },
+    {
+      "name": "NAC_DTM_SHACKRDGE02.TIF",
+      "bytes": 10073090,
+      "sha256": "89d19c6ba6b0c987b503cedc3324606d9fd61d522f83db9788d3314c45f80c8a",
+      "pixelM": 3.5,
+      "eligible": 6,
+      "selected": 2,
+      "ids": [
+        "LSP-38864",
+        "LSP-38867"
+      ],
+      "verticalOffsetM": 0.732421875,
+      "verticalNMADM": 1.1651585102081299,
+      "verticalPairs": 2501,
+      "heights": {
+        "1": {
+          "signedP95Deg": 1.6041432619094849,
+          "fractionAbove025": 0.175
+        },
+        "5": {
+          "signedP95Deg": 0.10306475311517715,
+          "fractionAbove025": 0.017361111111111112
+        },
+        "10": {
+          "signedP95Deg": 0.08595538139343262,
+          "fractionAbove025": 0.0
+        }
+      }
+    },
+    {
+      "name": "NAC_DTM_MALAPERT03.TIF",
+      "bytes": 26839274,
+      "sha256": "aaf80be79e757933bb8398dcbe30a57111fc231ad92adf8328965695c28236aa",
+      "pixelM": 4.0,
+      "eligible": 27,
+      "selected": 27,
+      "ids": [
+        "LSP-4012",
+        "LSP-4195",
+        "LSP-4196",
+        "LSP-4197",
+        "LSP-4198",
+        "LSP-4199",
+        "LSP-4385",
+        "LSP-4386",
+        "LSP-4387",
+        "LSP-4389",
+        "LSP-4577",
+        "LSP-4578",
+        "LSP-4579",
+        "LSP-4580",
+        "LSP-4581",
+        "LSP-4771",
+        "LSP-4772",
+        "LSP-4773",
+        "LSP-4775",
+        "LSP-4971",
+        "LSP-6841",
+        "LSP-6842",
+        "LSP-7059",
+        "LSP-7277",
+        "LSP-7279",
+        "LSP-7500",
+        "LSP-7501"
+      ],
+      "verticalOffsetM": 0.425048828125,
+      "verticalNMADM": 2.484513282775879,
+      "verticalPairs": 10220,
+      "heights": {
+        "1": {
+          "signedP95Deg": 1.0981144905090332,
+          "fractionAbove025": 0.19094650205761318
+        },
+        "5": {
+          "signedP95Deg": 0.3831265866756439,
+          "fractionAbove025": 0.10493827160493827
+        },
+        "10": {
+          "signedP95Deg": 0.30233269929885864,
+          "fractionAbove025": 0.07561728395061729
+        }
+      }
+    },
+    {
+      "name": "NAC_DTM_NOBILE01.TIF",
+      "bytes": 277438562,
+      "sha256": "da45938606929814b3796f352875692742d9ca6a3b18b5c3a2cebd79e56ae102",
+      "pixelM": 3.0,
+      "eligible": 1,
+      "selected": 1,
+      "ids": [
+        "LSP-3193"
+      ],
+      "verticalOffsetM": 0.021484375,
+      "verticalNMADM": 0.8976679444313049,
+      "verticalPairs": 8273,
+      "heights": {
+        "1": {
+          "signedP95Deg": 0.30677667260169983,
+          "fractionAbove025": 0.05555555555555555
+        },
+        "5": {
+          "signedP95Deg": 0.014740538783371449,
+          "fractionAbove025": 0.0
+        },
+        "10": {
+          "signedP95Deg": 0.008736276999115944,
+          "fractionAbove025": 0.0
+        }
+      }
+    }
+  ],
+  "overall": {
+    "1": {
+      "locations": 45,
+      "signedP95Deg": 1.531802129745483,
+      "absoluteP95Deg": 1.531802129745483,
+      "fractionAbove025": 0.2540432098765432
+    },
+    "5": {
+      "locations": 45,
+      "signedP95Deg": 0.7845804691314695,
+      "absoluteP95Deg": 0.7845804691314695,
+      "fractionAbove025": 0.1626543209876543
+    },
+    "10": {
+      "locations": 45,
+      "signedP95Deg": 0.4652595520019528,
+      "absoluteP95Deg": 0.5072818994522095,
+      "fractionAbove025": 0.10925925925925926
+    }
+  }
+}

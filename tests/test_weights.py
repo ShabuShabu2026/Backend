@@ -13,7 +13,7 @@ from app.settings import OBJECTIVES
 
 
 def test_preview_and_objectives(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path))) as client:
+    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path, database_url=None))) as client:
         assert len(client.get("/config").json()["objectives"]) == 8
         params = {"missionType": "CREWED", "powerRequirement": "NORMAL",
                   "communicationDependency": "NORMAL", "objective": "GENERAL"}
@@ -31,7 +31,7 @@ def test_analysis_does_not_fabricate_results(tmp_path: Path) -> None:
     request = {"landingDate": "2027-03-05", "stayDays": 6, "missionType": "CREWED",
                "objective": "GENERAL", "powerRequirement": "NORMAL",
                "communicationDependency": "NORMAL"}
-    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path))) as client:
+    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path, database_url=None))) as client:
         result = client.post("/analyses", json=request)
         assert result.status_code == 503
         assert result.json()["error"]["code"] == "DATA_NOT_READY"
@@ -46,7 +46,7 @@ def test_analysis_does_not_fabricate_results(tmp_path: Path) -> None:
 
 
 def test_all_preview_presets_match_shared_weight_calculation(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path))) as client:
+    with TestClient(create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path, database_url=None))) as client:
         for mission, power, comm, objective in product(
             ("CREWED", "UNCREWED"), ("LOW", "NORMAL", "HIGH"),
             ("INDEPENDENT", "NORMAL", "CRITICAL"), (o[0] for o in OBJECTIVES),
@@ -72,7 +72,7 @@ def test_preview_matches_analysis_for_all_presets(tmp_path: Path) -> None:
                        roughness_reference=np.array([0.0, 1.0]), objectives=objectives, reference={})
     metrics = np.zeros((size, 1, 5))
     metrics[:, :, 0:2] = 1
-    app = create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path))
+    app = create_app(Settings(data_dir=tmp_path, artifacts_dir=tmp_path, database_url=None))
     with TestClient(app) as client, patch("app.engine.service.visibility_windows", return_value=(metrics, np.zeros(size, dtype=bool))):
         app.state.artifacts = bundle
         for mission, power, comm, objective in product(

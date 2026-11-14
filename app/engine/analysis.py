@@ -106,7 +106,7 @@ def evaluate_site(request: AnalysisRequest, latitude: float, longitude: float,
     result = results[search]
     eligible = [(item["suitability"], i) for i, item in enumerate(results) if item["passed"]]
     result["bestLandingDate"] = ((start_date + timedelta(days=max(eligible, key=lambda item: item[0])[1])).isoformat()
-                                 if result["passed"] and search and eligible else None)
+                                 if search and eligible else None)
     result["importance"] = weights["importance"]
     result["normalizedWeights"] = weights["normalizedWeights"]
     result["hourly"] = {key: value[search * 24:search * 24 + hours] for key, value in data.items()}

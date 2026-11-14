@@ -120,7 +120,7 @@ def build_analysis(request: AnalysisRequest, artifacts: Artifacts) -> dict[str, 
                      "visibility": visibility, "importance": importance,
                      "normalizedWeights": weight_info["normalizedWeights"],
                      "bestLandingDate": (start_date + timedelta(days=int(best_day[index]))).isoformat()
-                     if current_passed and search and any_passed[index] else None}
+                     if search and any_passed[index] else None}
         if current_passed:
             ranked = sorted(((value, -i, SCORE_TAGS[i]) for i, value in enumerate(scores.values())
                              if value is not None), reverse=True)
@@ -147,6 +147,8 @@ def build_analysis(request: AnalysisRequest, artifacts: Artifacts) -> dict[str, 
         warnings.append("Slope constraint is off; analysis is capped at 15 degrees.")
     if request.missionType == "CREWED" and not request.advanced.crewedSunlightConstraint.enabled:
         warnings.append("Crewed continuous sunlight constraint is off.")
+    if request.advanced.earthVisibilityCriterion == "CENTER_DELTA":
+        warnings.append("Earth visibility margin is provisional and has not been validated as a 95% uncertainty bound.")
     public = {"appliedImportance": weight_info["importance"], "normalizedWeights": weight_info["normalizedWeights"],
               "otherIncluded": weight_info["otherIncluded"], "warnings": warnings,
               "counts": {"total": len(sites), "passed": passed_count, "excluded": len(sites) - passed_count,

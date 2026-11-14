@@ -134,7 +134,8 @@ def visibility(analysisId: str, siteId: str, request: Request, landingDate: date
                  for key, values in computed["hourly"].items()}
         entry["time"] = np.datetime_as_string(start + np.timedelta64(index, "h"), unit="s") + "Z"
         hourly.append(entry)
-    return {"landingDate": landing.isoformat(), "stayDays": current.stayDays, "stepHours": 1, "hourly": hourly}
+    return {"landingDate": landing.isoformat(), "stayDays": current.stayDays, "stepHours": 1,
+            "visibility": computed["visibility"], "passed": computed["passed"], "hourly": hourly}
 
 
 @router.get("/{analysisId}/sites/{siteId}/terrain")
@@ -167,7 +168,11 @@ def terrain(analysisId: str, siteId: str, request: Request,
 
 
 def _get_analysis(request: Request, analysis_id: str) -> dict:
-    result = request.app.state.store.get(analysis_id)
+    try:
+        result = request.app.state.store.get(analysis_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code": "ANALYSIS_VERSION_CHANGED",
+                            "message": "This analysis uses different data or calculation settings. Run a new analysis."}) from exc
     if result is None:
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return result
@@ -192,6 +197,10 @@ def _spacing(bounds: tuple[float, float, float, float]) -> float:
 def _refined(request: Request, analysis: dict, bounds: tuple[float, float, float, float], spacing: float) -> list[dict]:
     try:
         with request.app.state.store.lock:
-            return refined_sites(analysis, bounds, spacing, request.app.state.artifacts, request.app.state.settings)
+            previous_count = len(analysis.get("byId", {}))
+            result = refined_sites(analysis, bounds, spacing, request.app.state.artifacts, request.app.state.settings)
+            if len(analysis.get("byId", {})) != previous_count:
+                request.app.state.store.save(analysis)
+            return result
     except (OSError, ValueError, KeyError, ProjError) as exc:
         raise HTTPException(status_code=503, detail="Refined-grid data is unavailable.") from exc

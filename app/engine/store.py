@@ -50,3 +50,6 @@ class AnalysisStore:
                 _, oldest = self._items.popitem(last=False)
                 self._keys.pop(oldest["_requestKey"], None)
             return result
+
+    def save(self, result: dict[str, Any]) -> None:
+        """In-memory results are already updated in place."""

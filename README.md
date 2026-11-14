@@ -32,7 +32,19 @@ locate the prepared files. Railway must have persistent access to both; a GitHub
 deployment alone does not include ignored artifacts or source data. The current
 container startup script downloads only the original DEM and baseline datasets,
 so a complete deployment requires a separate artifact provisioning procedure.
-Keep `WEB_CONCURRENCY=1`: the analysis cache is local to each server process.
+When `DATABASE_URL` is configured, startup creates `landing_analyses` if needed.
+Analysis snapshots and refined site data are stored in PostgreSQL; they survive
+restarts, and identical requests with the same data and code reuse the analysis.
+The PostgreSQL user therefore needs permission to create this table. Keep
+`WEB_CONCURRENCY=1`: the local read cache and concurrent refined-grid updates are
+not synchronized across workers. With no `DATABASE_URL`, storage falls back to
+an in-memory LRU and analyses disappear on restart. Database storage currently
+has no automatic expiration; monitor storage and back up the PostgreSQL volume.
+Startup hashes the relevant source data, artifacts and application code. If any
+of these change, fetching a previous analysis returns `ANALYSIS_VERSION_CHANGED`;
+run a new analysis rather than mixing old scores with new data. Hashing these
+large files adds disk reads and startup time. Existing in-memory analyses from
+older deployments cannot be recovered retroactively.
 `calibrate_delta` additionally requires the four PGDA 78 Site DEMs. It reports a
 matched 2 km comparison and a 100 km hybrid estimate, and does not change the
 configured Earth margin. The 5 m tiles do not cover a full 100 km radius.

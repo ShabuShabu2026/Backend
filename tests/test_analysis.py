@@ -10,6 +10,7 @@ from rasterio.transform import from_origin
 from app.config import Settings
 from app.engine.analysis import evaluate_site
 from app.engine.artifacts import Artifacts
+from app.engine.refined import refined_sites
 from app.engine.service import build_analysis
 from app.main import create_app
 from app.schemas import Advanced, AnalysisRequest, CrewedConstraint
@@ -53,16 +54,20 @@ def test_base_analysis_api_with_synthetic_artifacts() -> None:
     body = {"landingDate": "2027-03-05", "stayDays": 1, "missionType": "CREWED",
             "objective": "GENERAL", "powerRequirement": "NORMAL", "communicationDependency": "NORMAL",
             "advanced": {"landingDateSearchRangeDays": 0}}
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(Settings(database_url=None))) as client:
         client.app.state.artifacts = bundle
         response = client.post("/analyses", json=body)
         assert response.status_code == 201, response.text
         analysis = response.json()
+        assert any("margin is provisional" in warning for warning in analysis["warnings"])
         assert analysis["counts"]["passed"] == n
         assert client.post("/analyses", json=body).json()["analysisId"] == analysis["analysisId"]
         path = f"/analyses/{analysis['analysisId']}"
         assert client.get(f"{path}/sites/LSP-0001").json()["passed"] is True
-        assert len(client.get(f"{path}/sites/LSP-0001/visibility").json()["hourly"]) == 24
+        visibility = client.get(f"{path}/sites/LSP-0001/visibility").json()
+        assert len(visibility["hourly"]) == 24
+        assert visibility["visibility"]["sunlightRatio"] == 1.0
+        assert visibility["passed"] is True
         assert client.get(f"{path}/sites/no-such-site").json()["error"]["code"] == "SITE_NOT_FOUND"
         grid_result = client.get(f"{path}/grid", params={"bbox": "-40000,-40000,40000,40000"})
         assert len(grid_result.json()["sites"]["ids"]) == n
@@ -94,7 +99,7 @@ def test_refined_grid_reuses_ids_and_scores(tmp_path) -> None:
     body = {"landingDate": "2027-03-05", "stayDays": 1, "missionType": "CREWED",
             "objective": "GENERAL", "powerRequirement": "NORMAL", "communicationDependency": "NORMAL",
             "advanced": {"landingDateSearchRangeDays": 0}}
-    app = create_app(Settings(data_dir=tmp_path))
+    app = create_app(Settings(data_dir=tmp_path, database_url=None))
     with TestClient(app) as client:
         app.state.artifacts = bundle
         post = client.post("/analyses", json=body).json()
@@ -115,6 +120,12 @@ def test_refined_grid_reuses_ids_and_scores(tmp_path) -> None:
         assert wider.json()["returnedCount"] == 10
         assert client.get(path + "/grid", params=params).json()["sites"]["ids"] == points["ids"]
         assert client.get(path + f"/sites/{points['ids'][center]}/terrain").status_code == 200
+        stored = app.state.store.get(post["analysisId"])
+        bounds = (1999, -1, 2001, 1)
+        first = refined_sites(stored, bounds, 200, bundle, app.state.settings)[0]
+        second = refined_sites(stored, bounds, 250, bundle, app.state.settings)[0]
+        assert first["siteId"] == second["siteId"]
+        assert first["suitability"] == second["suitability"]
 
 
 @pytest.mark.parametrize("mission,sun_mode,earth_mode", [
@@ -149,3 +160,25 @@ def test_batch_analysis_matches_single_site(mission: str, sun_mode: str, earth_m
         expected = evaluate_site(request, 0, 0, grid["slope"][i], grid["roughness"][i], masks[i], sky, reference)
         for key in ("passed", "exclusionCodes", "suitability", "bestLandingDate", "visibility"):
             assert actual[key] == expected[key]
+
+
+def test_best_date_can_pass_when_requested_date_does_not() -> None:
+    request = AnalysisRequest(landingDate=date(2027, 3, 6), stayDays=1, missionType="CREWED",
+                              objective="GENERAL", powerRequirement="NORMAL",
+                              communicationDependency="NORMAL",
+                              advanced=Advanced(landingDateSearchRangeDays=1))
+    times = np.arange(np.datetime64("2027-03-05T00", "h"), np.datetime64("2027-03-08T00", "h"))
+    bodies = np.tile([LUNAR_RADIUS_M + 100_000.0, 0, 0], (len(times), 1))
+    sun = bodies.copy()
+    sun[24:48, 0] = LUNAR_RADIUS_M - 100_000.0
+    sky = {"time": times, "r_earth": bodies, "r_sun": sun,
+           "rho_sun": np.full(len(times), 0.25), "rho_earth": np.full(len(times), 1.0)}
+    result = evaluate_site(request, 0, 0, 0, 0.1, np.zeros(720), sky, np.array([0.1]))
+    assert not result["passed"]
+    assert result["bestLandingDate"] == "2027-03-05"
+    grid = {"ids": np.array(["LSP-0001", "LSP-0002"]), "x": np.array([0, 1000]),
+            "y": np.array([0, 1000]), "lat": np.zeros(2), "lon": np.zeros(2),
+            "slope": np.zeros(2), "roughness": np.full(2, 0.1), "crs": np.array("test")}
+    artifacts = Artifacts(grid, sky, {1: np.zeros((2, 720))}, np.array([0.1]), {}, {})
+    batch = build_analysis(request, artifacts)["sites"][0]
+    assert batch["bestLandingDate"] == result["bestLandingDate"]
