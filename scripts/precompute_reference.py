@@ -26,6 +26,8 @@ def main() -> None:
     for path in (grid_path, psr_path):
         if not path.is_file():
             raise SystemExit(f"Required dataset is missing: {path}")
+    reference_path = Path("artifacts/reference.json")
+    reference_path.unlink(missing_ok=True)
     with np.load(grid_path, allow_pickle=False) as grid:
         x, y, roughness = (grid[key].copy() for key in ("x", "y", "roughness"))
         crs = CRS.from_wkt(str(grid["crs"].item()))
@@ -64,7 +66,9 @@ def main() -> None:
         report["craterDistanceP95M"] = crater_ref
     else:
         report["unavailableObjectives"].append("IMPACT_HISTORY")
-    Path("artifacts/reference.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    temporary = reference_path.with_suffix(".json.part")
+    temporary.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(reference_path)
     print(f"Saved references for {len(x)} grid points.")
     print("Unavailable objectives:", ", ".join(report["unavailableObjectives"]) or "none")
 

@@ -1,6 +1,8 @@
 """Precompute horizon masks from the DEM and an existing base grid."""
 
 import argparse
+import hashlib
+import json
 import time
 from pathlib import Path
 
@@ -39,9 +41,11 @@ def run(grid_path: Path, dem_path: Path, output_dir: Path) -> None:
     cols = (x - transform.c) / transform.a - 0.5
     rows = (transform.f - y) / transform.a - 0.5
     output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = output_dir / "horizon_manifest.json"
+    manifest.unlink(missing_ok=True)
     start = time.perf_counter()
     for height in HEIGHTS_M:
-        output = np.lib.format.open_memmap(output_dir / f"horizon_{height}m.npy", mode="w+",
+        output = np.lib.format.open_memmap(output_dir / f"horizon_{height}m.npy.part", mode="w+",
                                           dtype="float32", shape=(len(x), HORIZON_AZIMUTH_COUNT))
         for i in range(0, len(x), 256):
             sl = slice(i, min(i + 256, len(x)))
@@ -53,8 +57,17 @@ def run(grid_path: Path, dem_path: Path, output_dir: Path) -> None:
     indices = np.random.default_rng(0).choice(len(x), count, replace=False)
     short = horizon_masks(dem, cols[indices], rows[indices], HEIGHTS_M[0], transform.a,
                           HORIZON_COMPARISON_DISTANCE_M, HORIZON_AZIMUTH_COUNT, offsets[indices])
-    long = np.load(output_dir / f"horizon_{HEIGHTS_M[0]}m.npy", mmap_mode="r")[indices]
+    long = np.load(output_dir / f"horizon_{HEIGHTS_M[0]}m.npy.part", mmap_mode="r")[indices]
     print(f"Maximum 100 km / 50 km difference: {np.nanmax(np.abs(long - short)):.6f} degrees")
+    for height in HEIGHTS_M:
+        (output_dir / f"horizon_{height}m.npy.part").replace(output_dir / f"horizon_{height}m.npy")
+    with grid_path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    temporary = manifest.with_suffix(".json.part")
+    temporary.write_text(json.dumps({"gridSha256": digest, "gridPointCount": len(x),
+                                     "heightsM": list(HEIGHTS_M), "azimuthCount": HORIZON_AZIMUTH_COUNT}) + "\n",
+                         encoding="utf-8")
+    temporary.replace(manifest)
     print(f"Elapsed: {time.perf_counter() - start:.2f} seconds")
 
 

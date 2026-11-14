@@ -43,8 +43,8 @@ def sunlight_score(visible_ratio: float, required_ratio: float, longest_darkness
     return 0.5 * requirement + 0.5 * (1 - longest_darkness / hours)
 
 
-def roughness_score(value: float, reference: NDArray) -> float:
-    valid = np.sort(np.asarray(reference)[np.isfinite(reference)])
+def roughness_score(value: float, reference: NDArray, *, sorted_reference: bool = False) -> float:
+    valid = np.asarray(reference) if sorted_reference else np.sort(np.asarray(reference)[np.isfinite(reference)])
     if not len(valid):
         raise ValueError("Roughness reference distribution is empty.")
     left, right = np.searchsorted(valid, value, side="left"), np.searchsorted(valid, value, side="right")

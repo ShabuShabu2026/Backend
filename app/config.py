@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     web_concurrency: int = 1
     database_url: str | None = None
+    artifacts_dir: Path = Path("./artifacts")
 
     @property
     def allowed_origins(self) -> list[str]:
