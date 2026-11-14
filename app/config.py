@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     cors_origins: str = "http://localhost:3000"
     web_concurrency: int = 1
+    database_url: str | None = None
 
     @property
     def allowed_origins(self) -> list[str]:
