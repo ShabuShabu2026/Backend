@@ -18,5 +18,7 @@ All are defined in `app/settings.py`: base grid spacing 1,000 m; heights 1/5/10 
 ## Open issues and measurements
 
 - Full analysis and reference artifacts cannot be produced until roughness is complete. Geology, impact history and 5 m horizon calibration require the missing datasets.
-- Horizons data, masks, reference values, baseline comparisons and performance measurements are not yet available.
+- Horizons 2027 table downloaded from JPL Horizons: 8,760 hourly rows. The Moon observer output specifies MOON_ME, east-positive longitude, and a spherical 1,737.4 km target. Apparent planetodetic and planetocentric latitudes coincide for this spherical target. Maximum absolute Earth subpoint longitude/latitude: 7.768/6.847 degrees; median subsolar synodic period: 29.528 days. Horizons reports DE441 ephemerides; the specified MOON_ME frame is retained, and validation against the DE421 datasets remains outstanding.
+- Full horizon masks, reference values, baseline comparisons and performance measurements are not yet available.
+- Until artifact loading and the analysis engine are implemented, `/health` and a valid `POST /analyses` return 503; no synthetic analysis results are generated.
 - Zero slope cap: the specified provisional rule gives passed sites flatness 1.
