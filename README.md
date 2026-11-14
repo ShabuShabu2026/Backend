@@ -2,9 +2,9 @@
 
 ## Current development status
 
-The lunar analysis engine is under development. `GET /config` and `GET /weights`
-are available. `GET /health` and valid `POST /analyses` return `DATA_NOT_READY`
-until the required data and analysis artifacts are available.
+The lunar analysis engine requires prepared offline artifacts. `GET /config` and
+`GET /weights` work without them. `GET /health` reports `DATA_NOT_READY` until
+the grid, horizon masks, sky table and all objective references are ready.
 
 Run from the repository root with Python 3.12:
 
@@ -13,12 +13,22 @@ Run from the repository root with Python 3.12:
 python -m pip install -r requirements-dev.txt
 python -m scripts.fetch_sky_table
 python -m scripts.precompute_grid
+python -m scripts.precompute_reference
+python -m scripts.precompute_masks
+python -m scripts.validate_baseline
 uvicorn app.main:app --reload
 python -m pytest
 ruff check .
 ```
 
-The grid precomputation currently stops with a clear error because the complete
-roughness raster is missing. It does not use the partial download. See
-`docs/DECISIONS.md` for data availability and provisional settings. The generated
-`artifacts/` directory is not committed. The source `data/` directory is read-only.
+Horizon preprocessing is computationally expensive. The reference script requires
+the complete roughness raster and PSR shapefile; geology and crater objective
+scores additionally require their source datasets. See `docs/DECISIONS.md` for
+the exact source paths, data limitations and provisional settings. Generated
+`artifacts/` files are not committed. Source `data/` is read-only to the scripts.
+The application reads `ARTIFACTS_DIR` (default `./artifacts`) and `DATA_DIR` to
+locate the prepared files. Railway must have persistent access to both; a GitHub
+deployment alone does not include ignored artifacts or source data. The current
+container startup script downloads only the original DEM and baseline datasets,
+so a complete deployment requires a separate artifact provisioning procedure.
+Keep `WEB_CONCURRENCY=1`: the analysis cache is local to each server process.

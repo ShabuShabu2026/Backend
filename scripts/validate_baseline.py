@@ -8,8 +8,8 @@ import rasterio
 from pyproj import CRS
 
 from app.engine.artifacts import load_artifacts
+from app.engine.batch import visibility_windows
 from app.engine.terrain import sample_raster
-from app.engine.visibility import site_visibility
 from app.settings import BASELINE_SAMPLE_COUNT, BASELINE_SYSTEMATIC_BIAS_THRESHOLD
 
 
@@ -27,12 +27,14 @@ def main() -> None:
         raw = sample_raster(path, grid["x"][indices], grid["y"][indices], crs)
         with rasterio.open(path) as dataset:
             reference.append(raw * dataset.scales[0] + dataset.offsets[0])
-    estimates = np.empty((count, 2))
-    for i, index in enumerate(indices):
-        visible = site_visibility(float(grid["lat"][index]), float(grid["lon"][index]),
-                                  artifacts.masks[1][index], artifacts.sky["r_earth"], artifacts.sky["r_sun"],
-                                  artifacts.sky["rho_earth"], artifacts.sky["rho_sun"], "PARTIAL", "UPPER_EDGE")
-        estimates[i] = [np.mean(visible["sunVisible"]), np.mean(visible["earthVisible"])]
+    metrics, invalid = visibility_windows(
+        grid["lat"][indices], grid["lon"][indices], artifacts.masks[1][indices],
+        artifacts.sky["r_earth"], artifacts.sky["r_sun"], artifacts.sky["rho_earth"],
+        artifacts.sky["rho_sun"], len(artifacts.sky["time"]), 0, 0, 0,
+    )
+    if np.any(invalid):
+        raise ValueError("One or more sampled sites have invalid sky or horizon data.")
+    estimates = metrics[:, 0, :2]
     for i, label in enumerate(("Sun", "Earth")):
         valid = np.isfinite(reference[i]) & np.isfinite(estimates[:, i])
         if valid.sum() < 2:
