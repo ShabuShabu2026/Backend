@@ -21,5 +21,5 @@ def sample_raster(path: Path, x: NDArray, y: NDArray, source_crs: CRS) -> NDArra
         transformer = Transformer.from_crs(source_crs, raster.crs, always_xy=True)
         xs, ys = transformer.transform(x, y)
         samples = list(raster.sample(zip(xs, ys, strict=True), indexes=1, masked=True))
-        values = np.ma.array(samples).reshape(-1).filled(np.nan)
+        values = np.ma.array(samples, dtype=np.float64).reshape(-1).filled(np.nan)
         return np.asarray(values, dtype=np.float64)
