@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# NASA data (keep directory placeholder)
+data/*
+!data/.gitkeep
+.env
