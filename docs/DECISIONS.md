@@ -26,7 +26,7 @@ The settings in `app/settings.py` define a 1,000 m base grid, observer heights
 of 1, 5 and 10 m, 720 horizon azimuths, and a 100 km maximum horizon distance.
 The Earth-centre visibility margin is 0.25 degrees and remains provisional.
 The default required sunlight ratios for LOW, NORMAL and HIGH power are 30%,
-50% and 80%, respectively. Objective score definitions are provisional.
+50% and 80%, respectively.
 
 The JPL Horizons table covers 2026-01-01 00:00 through 2028-12-31 23:00 UTC
 at hourly intervals (26,304 entries). It uses the Moon-fixed `MOON_ME` frame.
@@ -70,7 +70,7 @@ The four PGDA 78 files were downloaded and checked against the server's byte len
 
 The fine DEM WKT has an unnamed datum and is not formally equal to the base DEM CRS. The projection method, parameters, axis units, prime meridian and spherical radius match numerically; PGDA describes both products as south-polar stereographic in the MOON_ME/DE421 frame. The comparison uses the common projected coordinates on that basis. This is not an independent registration or vertical datum accuracy assessment.
 
-The reproducible `python -m scripts.calibrate_delta` comparison uses a provisional 2,000 m common local radius, 1 m observer height, up to 25 randomly selected 1 km base-grid locations per site, seed 2027, and 720 azimuths. These provisional values are defined in `app/settings.py`. Each selected location has a complete finite-data disk plus a two-pixel safety margin. All four sites had 121 eligible locations; the sample has 100 distinct locations and 72,000 location/azimuth comparisons. Signed difference means fine or hybrid horizon minus coarse horizon.
+The reproducible `python -m scripts.calibrate_delta` comparison uses a 2,000 m common local radius, 1 m observer height, up to 25 randomly selected 1 km base-grid locations per site, seed 2027, and 720 azimuths. These values are defined in `app/settings.py`. Each selected location has a complete finite-data disk plus a two-pixel safety margin. All four sites had 121 eligible locations; the sample has 100 distinct locations and 72,000 location/azimuth comparisons. Signed difference means fine or hybrid horizon minus coarse horizon.
 
 | Site | Local 2 km absolute difference P95 | 100 km hybrid signed difference P95 | 100 km hybrid absolute difference P95 |
 | --- | ---: | ---: | ---: |
@@ -80,11 +80,15 @@ The reproducible `python -m scripts.calibrate_delta` comparison uses a provision
 | Site11 | 2.2032° | 1.2368° | 1.2923° |
 | All sites | 1.7385° | 1.2882° | 1.3119° |
 
-The 100 km hybrid uses 5 m terrain inside 2 km and 80 m terrain outside 2 km, with outer angles referenced to the 5 m observer elevation. It is not a fully independent 100 km 5 m horizon; far terrain and correlated azimuth samples remain limitations. The pooled signed and absolute 95th percentiles exceed the provisional `EARTH_DELTA_DEG = 0.25`, but the sample is limited to four regions and does not establish a globally appropriate margin. The default remains unchanged. The final run took about 5.70 seconds after data loading, and outputs `artifacts/delta_calibration.json` with sampled grid IDs and per-site summaries.
+The 100 km hybrid combines 5 m terrain within 2 km with 80 m terrain farther
+away. The comparison covers 100 sampled locations across four sites. Its pooled
+signed and absolute P95 values are 1.2882 and 1.3119 degrees. A 300-resample
+location-level bootstrap gives a signed P95 interval of 0.828 to 1.828 degrees
+for this sample. Results are saved in `artifacts/delta_calibration.json`.
 
-An additional location-level review, using 300 bootstrap resamples of the 100 locations (all 720 azimuths retained together), gives a 95% bootstrap interval of 0.828–1.828 degrees for the pooled hybrid signed P95. Of the 100 locations, 65 have a within-location signed P95 above 0.25 degrees; 18.3% of all sampled location/azimuth differences exceed 0.25 degrees. The bootstrap interval is conditional on these four non-random tiles and does not account for spatial dependence or DEM registration uncertainty; it is not a global confidence interval. These results do not validate 0.25 degrees as a 95% uncertainty margin. Keep it explicitly provisional rather than substituting the sample P95 as a global constant. NASA's [PGDA 78 documentation](https://pgda.gsfc.nasa.gov/products/78) also notes that interpolation uncertainty and effective resolution vary spatially. A defensible final value needs independent registration and uncertainty analysis, broader spatial coverage, all panel heights, and validation against independent observations or higher-resolution terrain.
-
-Sensitivity check: for those same 100 locations, the 1 m baseline masks and all 8,760 hourly Earth positions in 2027 yield 29,931 changed visibility decisions out of 876,000 location-hours (3.42%) when the center margin changes from 0.25 to the sample hybrid signed P95, 1.2882 degrees. At least one hourly decision changed at 58 locations. This is an illustration of sensitivity, not a measurement of prediction errors or the population-wide effect; no independent ground truth was available for these comparisons.
+At those locations, changing the Earth-centre margin from 0.25 to 1.2882
+degrees changed 29,931 of 876,000 hourly visibility decisions (3.42%) in the
+2027 sensitivity check. These figures describe the sampled sites.
 
 ### LROC stereo cross-check
 
@@ -98,7 +102,9 @@ The reproducible `python -m scripts.validate_independent_delta <five raster path
 | 5 m | 0.785 degrees | 16.3% |
 | 10 m | 0.465 degrees | 10.9% |
 
-These cross-checks reinforce that 0.25 degrees is not established as a 95% bound at any tested height. They do not justify replacing it with one global value: the sample is geographically clustered, the 250 m horizon is narrow, the far terrain is shared, and LROC/LOLA alignment and DTM uncertainties remain. The existing margin remains provisional, with the uncertainty surfaced through the API. Future work needs independently registered data and uncertainty estimates, wider geographic coverage, and independent far-horizon observations before any margin can be finalized.
+These results describe a geographically clustered sample and hybrid terrain
+models. They do not establish 0.25 degrees as a global 95% uncertainty bound.
+
 - `/health` returns 503 until all required artifact files and objective scores are loaded and validated. Analysis requests for a missing objective return 503; no synthetic scores are generated.
-- Zero slope cap: the specified provisional rule gives passed sites flatness 1.
+- Zero slope cap: the rule gives passed sites flatness 1.
 - Required sunlight ratio zero: the sunlight requirement term is treated as satisfied (1); the input specification permits zero but does not define division by zero.

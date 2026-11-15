@@ -97,9 +97,8 @@ The catalogue includes crater position and radius fields; it has no age field.
   of horizon estimates to terrain resolution. They do not replace the 80 m DEM
   in the production analysis.
 
-The 5 m tiles cover limited areas. Their comparisons do not establish a global
-uncertainty bound; the Earth visibility margin remains provisional. See
-[`docs/DECISIONS.md`](../docs/DECISIONS.md) for methods and limitations.
+See [`docs/DECISIONS.md`](../docs/DECISIONS.md) for the comparison method and
+results. The Earth visibility margin is provisional.
 
 ## Precomputed analysis files
 
