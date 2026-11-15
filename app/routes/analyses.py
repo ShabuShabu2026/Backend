@@ -6,6 +6,7 @@ from datetime import date, timedelta
 import numpy as np
 import rasterio
 from fastapi import APIRouter, HTTPException, Query, Request
+from pyproj import CRS
 from pyproj.exceptions import ProjError
 from rasterio.windows import Window
 
@@ -107,6 +108,7 @@ def site(analysisId: str, siteId: str, request: Request) -> dict:
 
 @router.get("/{analysisId}/sites/{siteId}/visibility")
 def visibility(analysisId: str, siteId: str, request: Request, landingDate: date | None = None) -> dict:
+    """Return hourly directions in degrees and terrain-occluded visibility for a site."""
     result = _get_analysis(request, analysisId)
     value = _get_site(result, siteId)
     original = result["request"]
@@ -133,20 +135,31 @@ def visibility(analysisId: str, siteId: str, request: Request, landingDate: date
         entry = {key: (bool(values[index]) if key in ("sunVisible", "earthVisible") else float(values[index]))
                  for key, values in computed["hourly"].items()}
         entry["time"] = np.datetime_as_string(start + np.timedelta64(index, "h"), unit="s") + "Z"
+        entry.update({"timestamp": entry["time"], "sun_azimuth": entry["sunAzimuthDeg"],
+                      "sun_elevation": entry["sunElevationDeg"], "earth_azimuth": entry["earthAzimuthDeg"],
+                      "earth_elevation": entry["earthElevationDeg"], "sun_visible": entry["sunVisible"],
+                      "earth_visible": entry["earthVisible"]})
         hourly.append(entry)
     return {"landingDate": landing.isoformat(), "stayDays": current.stayDays, "stepHours": 1,
+            "site_id": siteId, "direction_convention": {"unit": "degrees", "azimuth": "clockwise from true north",
+                                                          "elevation": "degrees above local horizontal"},
             "visibility": computed["visibility"], "passed": computed["passed"], "hourly": hourly}
 
 
 @router.get("/{analysisId}/sites/{siteId}/terrain")
 def terrain(analysisId: str, siteId: str, request: Request,
             radiusM: int = Query(default=2000, ge=1, le=5000)) -> dict:
+    """Return DEM heights in meters; null marks a missing elevation sample."""
     analysis = _get_analysis(request, analysisId)
     value = _get_site(analysis, siteId)
     path = request.app.state.settings.raster_paths["dem"]
     try:
         with rasterio.open(path) as raster:
             transform = raster.transform
+            if raster.crs is None:
+                raise ValueError("DEM coordinate system is unavailable.")
+            dem_crs = CRS.from_wkt(raster.crs.to_wkt())
+            crs_wkt = raster.crs.to_wkt()
             if transform.b != 0 or transform.d != 0 or transform.a <= 0 or transform.e != -transform.a:
                 raise ValueError("DEM must have square north-up pixels.")
             size = transform.a
@@ -160,11 +173,26 @@ def terrain(analysisId: str, siteId: str, request: Request,
             values = values.astype(float).filled(np.nan)
             heights = [[float(v) if np.isfinite(v) else None for v in row] for row in values]
             origin_x, origin_y = raster.xy(row0, col0)
-    except (OSError, ValueError, rasterio.errors.RasterioError) as exc:
+            sphere = dem_crs.ellipsoid
+            is_lunar_sphere = (math.isclose(sphere.semi_major_metre, 1_737_400, abs_tol=0.001, rel_tol=0)
+                               and math.isclose(sphere.semi_minor_metre, 1_737_400, abs_tol=0.001, rel_tol=0))
+    except (OSError, ValueError, ProjError, rasterio.errors.RasterioError) as exc:
         raise HTTPException(status_code=503, detail="DEM terrain is unavailable.") from exc
     return {"centerLat": value["lat"], "centerLon": value["lon"], "gridSpacingM": size,
             "crs": analysis["response"]["crs"], "origin": {"x": origin_x, "y": origin_y},
-            "elevationsM": heights}
+            "elevationsM": heights,
+            "site_id": siteId, "latitude": value["lat"], "longitude": value["lon"],
+            "heights": heights, "resolution_m": size,
+            "coordinate_system": {"crs_wkt": crs_wkt, "origin": {"x": origin_x, "y": origin_y},
+                                  "origin_reference": "center of upper-left pixel",
+                                  "column_step": {"x": size, "y": 0},
+                                  "row_step": {"x": 0, "y": -size},
+                                  "site_position": {"x": value["x"], "y": value["y"]},
+                                  "unit": "m"},
+            "elevation_reference": ({"type": "reference_sphere", "radius_m": 1_737_400,
+                                     "unit": "m", "description": "Height relative to lunar reference sphere",
+                                     "provenance": "Assumed for the supplied NASA LOLA DEM; vertical datum is not encoded in the raster CRS"}
+                                    if is_lunar_sphere else None)}
 
 
 def _get_analysis(request: Request, analysis_id: str) -> dict:

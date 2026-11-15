@@ -68,6 +68,15 @@ def test_base_analysis_api_with_synthetic_artifacts() -> None:
         assert len(visibility["hourly"]) == 24
         assert visibility["visibility"]["sunlightRatio"] == 1.0
         assert visibility["passed"] is True
+        hourly = visibility["hourly"][0]
+        assert visibility["site_id"] == "LSP-0001"
+        assert hourly["timestamp"] == hourly["time"] == "2027-03-05T00:00:00Z"
+        assert hourly["sun_azimuth"] == hourly["sunAzimuthDeg"]
+        assert hourly["sun_elevation"] == hourly["sunElevationDeg"]
+        assert hourly["earth_azimuth"] == hourly["earthAzimuthDeg"]
+        assert hourly["earth_elevation"] == hourly["earthElevationDeg"]
+        assert hourly["sun_visible"] == hourly["sunVisible"]
+        assert hourly["earth_visible"] == hourly["earthVisible"]
         assert client.get(f"{path}/sites/no-such-site").json()["error"]["code"] == "SITE_NOT_FOUND"
         grid_result = client.get(f"{path}/grid", params={"bbox": "-40000,-40000,40000,40000"})
         assert len(grid_result.json()["sites"]["ids"]) == n
@@ -126,6 +135,39 @@ def test_refined_grid_reuses_ids_and_scores(tmp_path) -> None:
         second = refined_sites(stored, bounds, 250, bundle, app.state.settings)[0]
         assert first["siteId"] == second["siteId"]
         assert first["suitability"] == second["suitability"]
+
+
+def test_terrain_frontend_contract_and_missing_values(tmp_path) -> None:
+    dem = tmp_path / "dem" / "LDEM_80S_80MPP_ADJ.TIF"
+    dem.parent.mkdir()
+    crs = CRS.from_proj4("+proj=stere +lat_0=-90 +lon_0=0 +R=1737400 +units=m")
+    values = np.arange(16, dtype=np.float32).reshape(4, 4)
+    values[0, 0] = -9999
+    with rasterio.open(dem, "w", driver="GTiff", width=4, height=4, count=1, dtype="float32",
+                       nodata=-9999, crs=crs.to_wkt(), transform=from_origin(-160, 160, 80, 80)) as dst:
+        dst.write(values, 1)
+    app = create_app(Settings(data_dir=tmp_path, database_url=None))
+    body = AnalysisRequest(landingDate="2027-03-05", stayDays=1, missionType="CREWED",
+                           objective="GENERAL", powerRequirement="NORMAL", communicationDependency="NORMAL")
+    site = {"siteId": "LSP-0001", "lat": -90.0, "lon": 0.0, "x": 0.0, "y": 0.0}
+    analysis = app.state.store.put(body, {"byId": {site["siteId"]: site}, "response": {"crs": crs.to_wkt()}})
+    with TestClient(app) as client:
+        response = client.get(f"/analyses/{analysis['analysisId']}/sites/LSP-0001/terrain", params={"radiusM": 200})
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["site_id"], data["latitude"], data["longitude"]) == ("LSP-0001", -90.0, 0.0)
+        assert data["heights"] == data["elevationsM"]
+        assert data["heights"][0][0] is None
+        assert data["heights"][3][3] == 15
+        assert data["resolution_m"] == data["gridSpacingM"] == 80
+        coordinates = data["coordinate_system"]
+        assert coordinates["origin"] == {"x": -120, "y": 120}
+        assert coordinates["site_position"] == {"x": 0, "y": 0}
+        assert coordinates["column_step"] == {"x": 80, "y": 0}
+        assert coordinates["row_step"] == {"x": 0, "y": -80}
+        with rasterio.open(dem) as raster:
+            assert CRS.from_wkt(coordinates["crs_wkt"]) == CRS.from_wkt(raster.crs.to_wkt())
+        assert data["elevation_reference"]["radius_m"] == 1_737_400
 
 
 @pytest.mark.parametrize("mission,sun_mode,earth_mode", [
