@@ -222,6 +222,7 @@ __marimo__/
 # NASA data (keep directory placeholder)
 data/*
 !data/.gitkeep
+!data/DATASETS.md
 .env
 
 # Generated offline artifacts
