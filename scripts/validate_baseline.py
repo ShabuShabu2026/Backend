@@ -16,6 +16,10 @@ from app.settings import BASELINE_SAMPLE_COUNT, BASELINE_SYSTEMATIC_BIAS_THRESHO
 def main() -> None:
     started = time.perf_counter()
     artifacts = load_artifacts(Path("artifacts"))
+    times = artifacts.sky["time"].astype("datetime64[h]")
+    year = (times >= np.datetime64("2027-01-01T00", "h")) & (times < np.datetime64("2028-01-01T00", "h"))
+    if np.count_nonzero(year) != 8760:
+        raise ValueError("Sky data does not cover all of 2027.")
     grid = artifacts.grid
     crs = CRS.from_wkt(str(grid["crs"].item()))
     count = min(BASELINE_SAMPLE_COUNT, len(grid["ids"]))
@@ -29,8 +33,8 @@ def main() -> None:
             reference.append(raw * dataset.scales[0] + dataset.offsets[0])
     metrics, invalid = visibility_windows(
         grid["lat"][indices], grid["lon"][indices], artifacts.masks[1][indices],
-        artifacts.sky["r_earth"], artifacts.sky["r_sun"], artifacts.sky["rho_earth"],
-        artifacts.sky["rho_sun"], len(artifacts.sky["time"]), 0, 0, 0,
+        artifacts.sky["r_earth"][year], artifacts.sky["r_sun"][year], artifacts.sky["rho_earth"][year],
+        artifacts.sky["rho_sun"][year], 8760, 0, 0, 0,
     )
     if np.any(invalid):
         raise ValueError("One or more sampled sites have invalid sky or horizon data.")

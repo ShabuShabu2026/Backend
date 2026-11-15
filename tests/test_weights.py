@@ -37,7 +37,7 @@ def test_analysis_does_not_fabricate_results(tmp_path: Path) -> None:
         assert result.json()["error"]["code"] == "DATA_NOT_READY"
         result = client.post("/analyses", json={**request, "objective": "UNKNOWN"})
         assert result.status_code == 400
-        result = client.post("/analyses", json={**request, "landingDate": "2027-01-01"})
+        result = client.post("/analyses", json={**request, "landingDate": "2026-01-01"})
         assert result.json()["error"]["code"] == "DATE_OUT_OF_RANGE"
         bad_weights = {**request, "advanced": {"importanceWeights": [True, 3, 3, 3, 3]}}
         assert client.post("/analyses", json=bad_weights).status_code == 400

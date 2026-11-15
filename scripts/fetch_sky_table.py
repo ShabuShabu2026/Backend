@@ -1,4 +1,4 @@
-"""Fetch the specified 2027 JPL Horizons observer tables."""
+"""Fetch hourly JPL Horizons observer tables for 2026 through 2028."""
 
 import csv
 import io
@@ -10,8 +10,8 @@ from urllib.request import urlopen
 import numpy as np
 
 BASE = "https://ssd.jpl.nasa.gov/api/horizons.api?"
-COMMON = {"format": "text", "EPHEM_TYPE": "'OBSERVER'", "START_TIME": "'2027-01-01 00:00'",
-          "STOP_TIME": "'2028-01-01 00:00'", "STEP_SIZE": "'1 h'", "APPARENT": "'AIRLESS'",
+COMMON = {"format": "text", "EPHEM_TYPE": "'OBSERVER'", "START_TIME": "'2026-01-01 00:00'",
+          "STOP_TIME": "'2029-01-01 00:00'", "STEP_SIZE": "'1 h'", "APPARENT": "'AIRLESS'",
           "CSV_FORMAT": "'YES'"}
 QUERIES = (
     {"COMMAND": "'301'", "CENTER": "'500@399'", "QUANTITIES": "'14,15,20'"},
@@ -32,9 +32,9 @@ def get_rows(query: dict[str, str]) -> tuple[str, list[list[str]]]:
         raise ValueError("Horizons response contains no ephemeris table.")
     part = text.split("$$SOE", 1)[1].split("$$EOE", 1)[0]
     rows = [row for row in csv.reader(io.StringIO(part), skipinitialspace=True) if row]
-    rows = [row for row in rows if row[0].strip().startswith("2027-")]
-    if len(rows) != 8760:
-        raise ValueError(f"Expected 8760 hourly rows, received {len(rows)}.")
+    rows = [row for row in rows if row[0].strip()[:4] in {"2026", "2027", "2028"}]
+    if len(rows) != 26304:
+        raise ValueError(f"Expected 26304 hourly rows, received {len(rows)}.")
     return text, rows
 
 
@@ -55,7 +55,7 @@ def main() -> None:
         raise ValueError("Horizons lunar frame or longitude convention is unexpected.")
     times = np.array([timestamp(row) for row in earth_rows])
     sun_times = np.array([timestamp(row) for row in sun_rows])
-    expected = np.arange(np.datetime64("2027-01-01T00", "h"), np.datetime64("2028-01-01T00", "h"))
+    expected = np.arange(np.datetime64("2026-01-01T00", "h"), np.datetime64("2029-01-01T00", "h"))
     if not np.array_equal(times, expected) or not np.array_equal(sun_times, times):
         raise ValueError("Horizons hourly timestamps are not aligned.")
     earth = np.array([[float(row[i]) for i in (3, 4, 5, 6, 7)] for row in earth_rows])

@@ -24,6 +24,29 @@ def synthetic_sky() -> dict[str, np.ndarray]:
             "rho_sun": np.full(len(times), 0.25), "rho_earth": np.full(len(times), 1.0)}
 
 
+@pytest.mark.parametrize("landing_date", ["2026-01-01", "2026-12-31", "2028-02-29", "2028-12-31"])
+def test_analysis_accepts_supported_dates_and_rejects_unavailable_window(landing_date: str) -> None:
+    sky = synthetic_sky()
+    start = np.datetime64(landing_date, "h")
+    sky["time"] = start + np.arange(24).astype("timedelta64[h]")
+    grid = {"ids": np.array([f"LSP-{i:04}" for i in range(1, 5)]),
+            "x": np.array([-1000, 1000, -1000, 1000]), "y": np.array([1000, 1000, -1000, -1000]),
+            "lat": np.zeros(4), "lon": np.zeros(4), "slope": np.full(4, 0.5),
+            "roughness": np.full(4, 0.1), "crs": np.array("synthetic test CRS")}
+    bundle = Artifacts(grid=grid, sky=sky, masks={1: np.zeros((4, 720))},
+                       roughness_reference=np.array([0.1, 0.2]), objectives={}, reference={})
+    body = {"landingDate": landing_date, "stayDays": 1, "missionType": "CREWED",
+            "objective": "GENERAL", "powerRequirement": "NORMAL", "communicationDependency": "NORMAL",
+            "advanced": {"landingDateSearchRangeDays": 0}}
+    with TestClient(create_app(Settings(database_url=None))) as client:
+        client.app.state.artifacts = bundle
+        response = client.post("/analyses", json=body)
+        assert response.status_code == 201, response.text
+        missing = client.post("/analyses", json={**body, "stayDays": 2})
+        assert missing.status_code == 400
+        assert missing.json()["error"]["code"] == "DATE_OUT_OF_RANGE"
+
+
 def test_site_analysis_pass_and_slope_exclusion() -> None:
     request = AnalysisRequest(landingDate=date(2027, 3, 5), stayDays=1, missionType="CREWED",
                               objective="GENERAL", powerRequirement="NORMAL",
@@ -54,6 +77,8 @@ def test_base_analysis_api_with_synthetic_artifacts() -> None:
     body = {"landingDate": "2027-03-05", "stayDays": 1, "missionType": "CREWED",
             "objective": "GENERAL", "powerRequirement": "NORMAL", "communicationDependency": "NORMAL",
             "advanced": {"landingDateSearchRangeDays": 0}}
+    assert AnalysisRequest.model_validate(body).limit == 20
+    assert AnalysisRequest.model_validate({**body, "limit": 10}).limit == 10
     with TestClient(create_app(Settings(database_url=None))) as client:
         client.app.state.artifacts = bundle
         response = client.post("/analyses", json=body)
@@ -123,10 +148,13 @@ def test_refined_grid_reuses_ids_and_scores(tmp_path) -> None:
         assert again["ids"] == points["ids"]
         recommendations = client.get(path + "/recommendations", params=params)
         assert recommendations.status_code == 200
-        assert recommendations.json()["returnedCount"] == 10
+        assert recommendations.json()["limit"] == 20
+        assert recommendations.json()["returnedCount"] == 20
+        limited = client.get(path + "/recommendations", params={**params, "limit": 10})
+        assert limited.json()["returnedCount"] == 10
         wider = client.get(path + "/recommendations", params={"bbox": "-600,-600,600,600"})
         assert wider.status_code == 200
-        assert wider.json()["returnedCount"] == 10
+        assert wider.json()["returnedCount"] == 20
         assert client.get(path + "/grid", params=params).json()["sites"]["ids"] == points["ids"]
         assert client.get(path + f"/sites/{points['ids'][center]}/terrain").status_code == 200
         stored = app.state.store.get(post["analysisId"])

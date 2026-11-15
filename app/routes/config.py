@@ -24,7 +24,7 @@ def config() -> dict:
                             for k, v in settings.MISSION_IMPORTANCE.items()},
             "powerRequirement": settings.POWER_IMPORTANCE, "other": settings.OTHER_IMPORTANCE,
         },
-        "limits": {"dateMin": "2027-01-01", "dateMax": "2027-12-31", "stayDaysMin": 1,
+        "limits": {"dateMin": "2026-01-01", "dateMax": "2028-12-31", "stayDaysMin": 1,
                    "slopeMaxDegRange": [0, 15], "importanceRange": [1, 5],
                    "landingDateSearchRangeDaysRange": [0, 30], "heightsM": settings.HEIGHTS_M},
     }

@@ -32,6 +32,13 @@ locate the prepared files. Railway must have persistent access to both; a GitHub
 deployment alone does not include ignored artifacts or source data. The current
 container startup script downloads only the original DEM and baseline datasets,
 so a complete deployment requires a separate artifact provisioning procedure.
+The sky table covers hourly data from 2026-01-01 through 2028-12-31 UTC.
+The complete landing-date search and stay window must fit within this range.
+After updating the code, regenerate `sky_table.npz` with
+`python -m scripts.fetch_sky_table` and provision the resulting file in Railway's
+`ARTIFACTS_DIR` before restarting the service. The file is ignored by Git and is
+not deployed automatically. Existing analysis snapshots use the old artifact
+version and must be recreated after the update.
 When `DATABASE_URL` is configured, startup creates `landing_analyses` if needed.
 Analysis snapshots and refined site data are stored in PostgreSQL; they survive
 restarts, and identical requests with the same data and code reuse the analysis.

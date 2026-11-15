@@ -55,5 +55,5 @@ class AnalysisRequest(BaseModel):
                        "ANCIENT_SUN", "UNIQUE_OBSERVATION", "EXPERIMENTAL_SCIENCE", "EXPLORATION_RISKS"]
     powerRequirement: Literal["LOW", "NORMAL", "HIGH"]
     communicationDependency: Literal["INDEPENDENT", "NORMAL", "CRITICAL"]
-    limit: int = Field(default=10, ge=1, le=50, strict=True)
+    limit: int = Field(default=20, ge=1, le=50, strict=True)
     advanced: Advanced = Field(default_factory=Advanced)

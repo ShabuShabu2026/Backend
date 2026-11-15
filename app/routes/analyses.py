@@ -28,11 +28,14 @@ def create_analysis(body: AnalysisRequest, request: Request) -> dict:
         end = body.landingDate + timedelta(days=body.stayDays) + search
     except OverflowError as exc:
         raise HTTPException(status_code=400, detail={"code": "DATE_OUT_OF_RANGE", "message": "Date range is outside available sky data."}) from exc
-    if start < date(2027, 1, 1) or end > date(2027, 12, 31):
+    if start < date(2026, 1, 1) or end > date(2029, 1, 1):
         raise HTTPException(status_code=400, detail={"code": "DATE_OUT_OF_RANGE", "message": "Date range is outside available sky data."})
     artifacts = request.app.state.artifacts
     if artifacts is None:
         raise HTTPException(status_code=503, detail="Analysis artifacts are not available.")
+    times = artifacts.sky["time"]
+    if np.datetime64(start.isoformat(), "h") < times[0] or np.datetime64(end.isoformat(), "h") > times[-1] + np.timedelta64(1, "h"):
+        raise HTTPException(status_code=400, detail={"code": "DATE_OUT_OF_RANGE", "message": "Date range is outside available sky data."})
     store = request.app.state.store
     existing = store.find(body)
     if existing is not None:
@@ -59,7 +62,7 @@ def _validate_bbox(bbox: str) -> tuple[float, float, float, float]:
 
 @router.get("/{analysisId}/recommendations")
 def recommendations(analysisId: str, bbox: str, request: Request,
-                    limit: int = Query(default=10, ge=1, le=50)) -> dict:
+                    limit: int = Query(default=20, ge=1, le=50)) -> dict:
     bounds = _validate_bbox(bbox)
     result = _get_analysis(request, analysisId)
     spacing = _spacing(bounds)
