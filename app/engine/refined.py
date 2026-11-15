@@ -7,6 +7,7 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 from pyproj import CRS, Transformer
+from rasterio.windows import Window
 
 from app.config import Settings
 from app.engine.analysis import evaluate_site
@@ -78,11 +79,21 @@ def refined_sites(analysis: dict[str, Any], bounds: tuple[float, float, float, f
         roughness = sample_raster(roughness_path, xx, yy, crs)
         with rasterio.open(dem_path) as src:
             transform = src.transform
-            dem = src.read(1, masked=True).astype(np.float32).filled(np.nan)
+            full_cols = (xx - transform.c) / transform.a - 0.5
+            full_rows = (transform.f - yy) / transform.a - 0.5
+            padding = math.ceil(HORIZON_MAX_DISTANCE_M / transform.a) + 2
+            col_start = max(0, math.floor(float(np.min(full_cols))) - padding)
+            row_start = max(0, math.floor(float(np.min(full_rows))) - padding)
+            col_end = min(src.width, math.ceil(float(np.max(full_cols))) + padding + 1)
+            row_end = min(src.height, math.ceil(float(np.max(full_rows))) + padding + 1)
+            if col_start >= col_end or row_start >= row_end:
+                raise ValueError("The requested sites are outside the DEM.")
+            window = Window(col_start, row_start, col_end - col_start, row_end - row_start)
+            dem = src.read(1, window=window, masked=True).astype(np.float32).filled(np.nan)
         north_x, north_y = forward.transform(lon, lat + 0.00001)
         offsets = np.arctan2(north_x - xx, north_y - yy)
-        dem_cols = (xx - transform.c) / transform.a - 0.5
-        dem_rows = (transform.f - yy) / transform.a - 0.5
+        dem_cols = full_cols - col_start
+        dem_rows = full_rows - row_start
         body = analysis["request"]
         masks = horizon_masks(dem, dem_cols, dem_rows, body.advanced.heightM, transform.a,
                               HORIZON_MAX_DISTANCE_M, HORIZON_AZIMUTH_COUNT, offsets)

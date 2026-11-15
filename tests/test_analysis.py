@@ -13,6 +13,7 @@ from app.engine.artifacts import Artifacts
 from app.engine.refined import refined_sites
 from app.engine.service import build_analysis
 from app.main import create_app
+from app.routes.analyses import _spacing
 from app.schemas import Advanced, AnalysisRequest, CrewedConstraint
 from app.settings import LUNAR_RADIUS_M
 
@@ -22,6 +23,12 @@ def synthetic_sky() -> dict[str, np.ndarray]:
     bodies = np.tile([LUNAR_RADIUS_M + 100_000.0, 0, 0], (len(times), 1))
     return {"time": times, "r_earth": bodies, "r_sun": bodies,
             "rho_sun": np.full(len(times), 0.25), "rho_earth": np.full(len(times), 1.0)}
+
+
+def test_refined_spacing_reuses_grid_across_small_zoom_changes() -> None:
+    assert _spacing((0, 0, 20000, 20000)) == 500
+    assert _spacing((0, 0, 21000, 21000)) == 500
+    assert _spacing((0, 0, 1000, 1000)) == 200
 
 
 @pytest.mark.parametrize("landing_date", ["2026-01-01", "2026-12-31", "2028-02-29", "2028-12-31"])

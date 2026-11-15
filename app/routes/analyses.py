@@ -221,8 +221,14 @@ def _bbox_dict(bounds: tuple[float, float, float, float]) -> dict:
 
 
 def _spacing(bounds: tuple[float, float, float, float]) -> float:
-    return max(REFINED_MIN_SPACING_M,
-               math.sqrt((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]) / REFINED_TARGET_POINTS))
+    requested = max(REFINED_MIN_SPACING_M,
+                    math.sqrt((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]) / REFINED_TARGET_POINTS))
+    if requested >= GRID_SPACING_M:
+        return requested
+    for spacing in (REFINED_MIN_SPACING_M, 250, 500, GRID_SPACING_M):
+        if requested <= spacing:
+            return float(spacing)
+    return float(GRID_SPACING_M)
 
 
 def _refined(request: Request, analysis: dict, bounds: tuple[float, float, float, float], spacing: float) -> list[dict]:
