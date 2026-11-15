@@ -1,88 +1,157 @@
-# Backend
+# Lunar Landing Site Analysis Backend
 
-## Current development status
+FastAPI backend for analysing lunar south pole landing sites, terrain, and Sun and Earth visibility.
 
-The lunar analysis engine requires prepared offline artifacts. `GET /config` and
-`GET /weights` work without them. `GET /health` reports `DATA_NOT_READY` until
-the grid, horizon masks, sky table and all objective references are ready.
+## Requirements
 
-Run from the repository root with Python 3.12:
+- Python 3.12
+- Windows PowerShell for the local commands below
+- Internet access to download the source data and JPL Horizons data
+- PostgreSQL 18 for persistent analysis storage (optional for local development)
+- Docker for container builds and deployment
+
+## 1. Install
+
+Run the following commands in PowerShell from the repository root:
 
 ```powershell
+python -m venv .venv
 .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
+```
+
+For a runtime-only installation, use `python -m pip install -r requirements.txt`.
+
+## 2. Configure the environment
+
+Create a local environment file:
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Replace the empty entries in `.env` with appropriate values. For local development without PostgreSQL, a minimal example is:
+
+```dotenv
+DATA_DIR=./data
+ARTIFACTS_DIR=./artifacts
+CORS_ORIGINS=http://localhost:3000
+WEB_CONCURRENCY=1
+```
+
+Remove the empty `DATABASE_URL` line when running without PostgreSQL. To persist analyses, create a PostgreSQL database and add its connection URL:
+
+```dotenv
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/lunar
+```
+
+Replace the username, password, host, port and database name with the values for your PostgreSQL installation. The configured PostgreSQL user must have permission to create the analysis table. Do not commit `.env`.
+
+| Variable          | Default                 | Purpose                                                                                                                                                                       |
+| ----------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_DIR`        | `./data`                | Location of source datasets used by the application.                                                                                                                          |
+| `ARTIFACTS_DIR`   | `./artifacts`           | Location of the precomputed grid, horizon masks and other analysis artifacts.                                                                                                 |
+| `DATABASE_URL`    | Unset                   | PostgreSQL connection URL. When unset, analysis results use an in-memory cache and are lost on restart.                                                                       |
+| `WEB_CONCURRENCY` | `1`                     | Uvicorn worker count in the container. Use `1` because local caches and refined-site updates are not synchronized across workers.                                             |
+| `CORS_ORIGINS`    | `http://localhost:3000` | Declared setting; the current app uses the `CORS_ORIGINS` constant in `app/settings.py`, which is `("*",)`, so this environment variable does not currently restrict origins. |
+| `PORT`            | `8000`                  | Port used by the container start command; Railway supplies this variable.                                                                                                     |
+
+## 3. Prepare the source data
+
+Download the DEM and Sun/Earth visibility baselines:
+
+```powershell
+python scripts/download_data.py
+```
+
+The download script reads `DATA_DIR` from the process environment, not from `.env`. If using a different directory, set `$env:DATA_DIR` before running it. The script downloads only the DEM and the baseline files. Prepare the following additional source data separately:
+
+```text
+data/
+  dem/
+    LDEM_80S_80MPP_ADJ.TIF
+  baseline/
+    AVGVISIB_85S_060M_201608.IMG
+    AVGVISIB_85S_060M_201608.LBL
+    AVGVISIB_85S_060M_201608_EARTH.IMG
+    AVGVISIB_85S_060M_201608_EARTH.LBL
+  terrain/
+    LDSM_80S_80MPP_ADJ.TIF
+    LDRM_80S_50MPP_ADJ_ROUGH_100M.TIF
+  psr/
+    LPSR_80S_20MPP_ADJ.SHP
+    LPSR_80S_20MPP_ADJ.SHX
+    LPSR_80S_20MPP_ADJ.DBF
+    LPSR_80S_20MPP_ADJ.PRJ
+  geology/
+    Unified_Geologic_Map_of_the_Moon_GIS/Lunar_GIS/Shapefiles/GeoUnits.shp
+    ... and its shapefile companion files
+  craters/
+    goransalamuniccar_mooncraters.zip
+```
+
+See [data/DATASETS.md](data/DATASETS.md) for source links and descriptions. These datasets are not included in Git. The optional 5 m site DEMs described there are used for horizon validation, not ordinary API startup.
+
+## 4. Generate analysis artifacts
+
+From the repository root, run these commands in order after preparing the source data:
+
+```powershell
 python -m scripts.fetch_sky_table
 python -m scripts.precompute_grid
 python -m scripts.precompute_reference
 python -m scripts.precompute_masks
-python -m scripts.validate_baseline
-python -m scripts.calibrate_delta
+```
+
+These commands write to `./artifacts` by default and use the source files under `./data`. Horizon mask generation is computationally intensive. If using a different `DATA_DIR` or `ARTIFACTS_DIR`, use the scripts' command-line options where available or provision the generated files in the configured locations. The reference and sky-table scripts use the default paths.
+
+The sky table covers 2026-01-01 00:00 through 2028-12-31 23:00 UTC. The full landing-date search range and stay must fit within the available time range.
+
+## 5. Start and verify
+
+```powershell
 uvicorn app.main:app --reload
+```
+
+Open:
+
+- API documentation: http://127.0.0.1:8000/docs
+- Health and loaded sky data range: http://127.0.0.1:8000/health
+
+`/health` reports `DATA_NOT_READY` until the required analysis artifacts are loaded. A missing objective artifact also prevents analysis for that objective.
+
+To run checks from another activated PowerShell terminal:
+
+```powershell
 python -m pytest
 ruff check .
 ```
 
-Horizon preprocessing is computationally expensive. The reference script requires
-the complete roughness raster and PSR shapefile; geology and crater objective
-scores additionally require their source datasets. See `docs/DECISIONS.md` for
-the exact source paths, data limitations and provisional settings. Generated
-`artifacts/` files are not committed. Source `data/` is read-only to the scripts.
-The application reads `ARTIFACTS_DIR` (default `./artifacts`) and `DATA_DIR` to
-locate the prepared files. Railway must have persistent access to both; a GitHub
-deployment alone does not include ignored artifacts or source data. The current
-container startup script downloads only the original DEM and baseline datasets,
-so a complete deployment requires a separate artifact provisioning procedure.
-The sky table covers hourly data from 2026-01-01 through 2028-12-31 UTC.
-The complete landing-date search and stay window must fit within this range.
-After updating the code, regenerate `sky_table.npz` with
-`python -m scripts.fetch_sky_table` and provision the resulting file in Railway's
-`ARTIFACTS_DIR` before restarting the service. The file is ignored by Git and is
-not deployed automatically. Existing analysis snapshots use the old artifact
-version and must be recreated after the update.
-When `DATABASE_URL` is configured, startup creates `landing_analyses` if needed.
-Analysis snapshots and refined site data are stored in PostgreSQL; they survive
-restarts, and identical requests with the same data and code reuse the analysis.
-The PostgreSQL user therefore needs permission to create this table. Keep
-`WEB_CONCURRENCY=1`: the local read cache and concurrent refined-grid updates are
-not synchronized across workers. With no `DATABASE_URL`, storage falls back to
-an in-memory LRU and analyses disappear on restart. Database storage currently
-has no automatic expiration; monitor storage and back up the PostgreSQL volume.
-Startup hashes the relevant source data, artifacts and application code. If any
-of these change, fetching a previous analysis returns `ANALYSIS_VERSION_CHANGED`;
-run a new analysis rather than mixing old scores with new data. Hashing these
-large files adds disk reads and startup time. Existing in-memory analyses from
-older deployments cannot be recovered retroactively.
-`calibrate_delta` additionally requires the four PGDA 78 Site DEMs. It reports a
-matched 2 km comparison and a 100 km hybrid estimate, and does not change the
-configured Earth margin. The 5 m tiles do not cover a full 100 km radius.
+## Docker and Railway
 
-## 3D terrain and celestial directions
+Build the image from the repository root:
 
-Create an analysis first, then request
-`GET /analyses/{analysisId}/sites/{siteId}/terrain?radiusM=2000`. The radius is
-in meters, defaults to 2,000 and is limited to 5,000. The response contains
-`site_id`, `latitude`, `longitude`, `heights`, `resolution_m`,
-`coordinate_system`, and `elevation_reference`. Previous response fields are
-also retained for existing clients. `heights` is a row-major grid of elevations
-in meters. Its cells can be `null` where the DEM has no data; clients must not
-interpret those cells as zero elevation. A raster-edge request can be clipped.
+```powershell
+docker build -t lunar-backend .
+```
 
-`coordinate_system.crs_wkt` describes the DEM's actual projected CRS.
-`coordinate_system.origin` is the center of the upper-left pixel. Given row `r`
-and column `c`, its projected position is `origin + c * column_step + r *
-row_step`; `site_position` gives the selected site's projected position, which
-may not coincide with a pixel center or the center of a clipped grid. These are
-projection axes, not necessarily local true east and north. For the supplied
-LOLA product, elevations are relative to the 1,737,400 m lunar reference
-sphere. This reference is assumed for the supplied LOLA product; the horizontal
-CRS alone does not verify the vertical datum. `elevation_reference` is `null`
-when the raster's CRS does not match that sphere. Product description:
-[NASA PGDA 90](https://pgda.gsfc.nasa.gov/products/90).
+The image excludes `data/` and `artifacts/`. The container entrypoint runs `scripts/download_data.py` and starts Uvicorn using `PORT` and `WEB_CONCURRENCY`. It does not generate the analysis artifacts.
 
-For a time slider, `GET /analyses/{analysisId}/sites/{siteId}/visibility`
-returns hourly `timestamp`, `sun_azimuth`, `sun_elevation`, `earth_azimuth`,
-`earth_elevation`, `sun_visible`, and `earth_visible`, in addition to the
-existing camelCase fields. Timestamps are UTC, angles are in degrees, azimuth
-is clockwise from local true north, and elevation is above the local horizontal.
-Visibility accounts for the site's terrain horizon and the criteria used for
-the analysis; it is not a visibility calculation for every terrain mesh vertex.
+For Railway:
+
+1. Deploy the repository as the Backend service and add a PostgreSQL service if persistent analysis storage is required.
+2. Add a persistent volume to the Backend service at `/app/data`. Provision the source files and the generated artifacts in that volume, for example under downloads, writable by the container user.
+3. Set Backend variables: Use the actual PostgreSQL service name in the Railway variable reference. Omit `DATABASE_URL` when not using PostgreSQL. See the CORS note above.
+
+   ```dotenv
+   DATA_DIR=/app/data
+   ARTIFACTS_DIR=/app/data/artifacts
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   WEB_CONCURRENCY=1
+   ```
+
+4. Start or redeploy the service, then check `/health` and `/docs` on the enerated Railway domain.
+
+When source data, artifacts or calculation code change, previous analysis snapshots may return `ANALYSIS_VERSION_CHANGED`; create a new analysis. See [docs/DECISIONS.md](docs/DECISIONS.md) for analysis settings and validation.
